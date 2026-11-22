@@ -1,0 +1,55 @@
+{
+  "host": "127.0.0.1",
+  "port": 10001,
+  "motion_commissioned": false,
+  "physical_control_enabled": true,
+  "manual_step_deg": 720.0,
+  "override_percent": 1,
+  "joint_speed_percent": 100,
+  "auto_connect_read_only": true,
+  "home_motion_commissioned": false,
+  "home_motion_enabled": true,
+  "home_pose": [
+    1.53,
+    -8.26,
+    157.49,
+    -0.01,
+    30.79,
+    91.52
+  ],
+  "controller_model": "CR2D-721-S312",
+  "robot_model": "RV-3SDB-S312",
+  "language": "MELFA-BASIC V",
+  "controller_firmware": "",
+  "request_terminator": "",
+  "reply_terminator": "",
+  "jposf_reply_format": "cr2d_extended",
+  "timeout_s": 5.0,
+  "joint_limits": [
+    [
+      -170,
+      170
+    ],
+    [
+      -90,
+      135
+    ],
+    [
+      -20,
+      171
+    ],
+    [
+      -160,
+      160
+    ],
+    [
+      -120,
+      120
+    ],
+    [
+      -360,
+      360
+    ]
+  ],
+  "gripper_hand": 1
+}

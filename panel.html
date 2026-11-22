@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MELFA · RV-3SDB</title>
+<style>
+:root{color-scheme:dark;font:15px/1.5 'Segoe UI',sans-serif;background:#10151d;color:#e7eef7}*{box-sizing:border-box}body{margin:0}header{padding:25px 36px;border-bottom:1px solid #293342;display:flex;justify-content:space-between;align-items:center}h1{font-size:23px;letter-spacing:1px;margin:0}h1 span{color:#85a1be;font-weight:400}small,.muted{color:#92a5ba}.badge{border:1px solid #3b5870;border-radius:22px;padding:6px 16px;color:#8ee7df;font-size:13px}main{max-width:1500px;margin:auto;padding:26px 36px}.strip{padding:13px 18px;background:#202e3c;border-left:3px solid #5fc8c1;margin-bottom:22px}.layout{display:grid;grid-template-columns:minmax(380px,1.3fr) minmax(390px,1fr);gap:24px}.card{background:#18212d;border:1px solid #2c3848;border-radius:12px;overflow:hidden}.cardhead{padding:18px 22px;border-bottom:1px solid #2c3848;display:flex;justify-content:space-between}h2{font-size:16px;margin:0}canvas{width:100%;height:480px;display:block;cursor:grab;touch-action:none}.caption{padding:8px 22px 20px;font-size:12px;color:#92a5ba}.controls{padding:8px 22px 20px}.axis{padding:14px 0;border-bottom:1px solid #2c3848}.row{display:flex;justify-content:space-between;gap:12px;align-items:center}.actual{font-family:Consolas,monospace;color:#69d6ca;font-size:13px}.axis input[type=range]{width:100%;accent-color:#62d1c7;display:block;margin:13px 0 3px}.angle{width:85px;padding:4px 7px;border:1px solid #455b71;border-radius:5px;background:#101822;color:white;text-align:right}button{border:1px solid #455b71;border-radius:6px;background:#253448;color:#e7eef7;padding:10px 16px;font:inherit;cursor:pointer}button:hover{background:#344d65}button:disabled{opacity:.35;cursor:default}.primary{background:#367f79;border-color:#5bc5b9}.stop{background:#b53d49;border-color:#f2767b;font-weight:700;min-width:120px}.toolbar{display:flex;gap:9px;flex-wrap:wrap;padding-top:18px}.check{font-size:12px;display:block;margin-top:16px;color:#b7c8da}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px}.body{padding:20px 22px}#log{font:12px/1.8 Consolas,monospace;height:125px;overflow:auto;color:#adc3d7;white-space:pre-wrap}#error{background:#462731;color:#ffc4c7;padding:12px 18px;margin-bottom:18px;border-radius:6px;display:none}#message{min-height:46px;color:#b6cadf;margin-top:16px}kbd{border:1px solid #49566a;border-radius:3px;padding:1px 5px}footer{font-size:12px;color:#8b9eb3;margin:24px 0}.legend{color:#6bd7cc}.ghost{color:#d9ad61}@media(max-width:950px){.layout,.bottom{grid-template-columns:1fr}header,main{padding:20px}canvas{height:380px}}
+</style>
+<header><div><h1>MELFA <span>/ RV-3SDB</span></h1><small>Пульт осей · локальная сеть · 6 степеней свободы</small></div><div class="badge" id="mode">СИМУЛЯЦИЯ</div></header>
+<main><div class="strip" id="banner">Симуляция: задайте углы и нажмите «Выполнить». Робот не подключён.</div><div id="error" role="alert"></div>
+<div class="layout"><section class="card"><div class="cardhead"><h2>Кинематическая схема</h2><small><span class="legend">● текущее</span> / <span class="ghost">● цель</span></small></div><canvas id="view"></canvas><div class="caption">Перетаскивание — поворот обзора · Колесо — масштаб<br>Поза учитывает нулевое положение J3 по схеме MELFA. Корпус и захват условные; столкновения не рассчитываются. Числовые углы показаны без преобразований.<div class="toolbar" style="padding-top:10px"><button id="sideView">Вид сбоку</button><button id="isoView">Изометрия</button></div></div></section>
+<section class="card"><div class="cardhead"><h2>Углы осей</h2><small id="poseStatus">Получение данных…</small></div><div class="controls">
+<div class="axis"><div class="row"><label for="speed"><b>Скорость контроллера</b></label><output id="speedValue" for="speed">1%</output></div><input id="speed" aria-label="Скорость контроллера, проценты" type="range" min="1" max="100" step="1" value="1"><div class="row"><small>1%</small><small>100%</small></div><div class="toolbar" style="padding-top:8px"><button id="applySpeed">Сохранить для подготовки</button><small id="actualSpeed">На контроллере: ещё не прочитано</small></div><small id="speedHint">Ползунок не запускает движение. Скорость применяется на остановленном роботе.</small></div>
+<div id="axes"></div>
+<div class="toolbar"><button id="applyLimits">Применить границы J1–J6</button><button id="resetLimits">Подставить заводские границы</button></div><div id="limitsStatus" class="muted" style="font-size:12px;margin-top:10px">Поля «Мин» и «Макс» задают абсолютные углы в градусах. Границы действуют для ползунков, кисти и HOME и сохраняются между запусками. Для изменения нажмите STOP и выключите режим кисти.</div>
+<div class="axis"><div class="row"><b>Z7 <span class="muted" id="gripHandName">Захват — Hand 1</span></b><output id="gripTarget">Открыть</output></div><input id="grip" aria-label="Z7 — захват" type="range" min="0" max="1" step="1" value="0"><div class="row"><small>0 — Открыть</small><small>1 — Закрыть</small></div><div class="toolbar" style="padding-top:8px"><button id="gripRead">Прочитать Z7</button><button class="primary" id="gripApply">Выполнить Z7</button></div><div id="gripFeedback" class="muted" style="font-size:12px;margin-top:8px">Сигнал выхода ещё не прочитан.</div><small>Две позиции, без промежуточного раскрытия. Сигнал выхода не является показанием датчиков губок.</small></div>
+<div class="toolbar"><button id="sync" disabled>Цель = текущее</button><button class="primary" id="move" disabled>Выполнить</button><button id="home" disabled>HOME</button><button class="stop" id="stop">STOP</button></div><div id="homePose" class="muted" style="font-size:12px;margin-top:12px"></div><div id="homeStatus" class="muted" style="font-size:12px"></div><div id="message" role="status"></div></div></section></div>
+<div class="bottom"><section class="card"><div class="cardhead"><h2>Соединение с контроллером</h2><small id="endpoint"></small></div><div class="body"><div class="toolbar" style="padding-top:0"><button class="primary" id="connect">Проверить и подключиться</button><button id="disconnect">Отключить</button><button id="arm">Подготовить управление</button><button id="servoOn" title="Включить серво на остановленном роботе; движение не запускается">SVO ON</button><button id="servoOff" title="Выключить серво на остановленном роботе; управление будет снято">SVO OFF</button></div><div id="connectionStatus" role="status" style="margin-top:16px;border-left:3px solid #52687d;padding:9px 13px;background:#101822"><b id="connectionTitle">Подключение не проверено</b><div id="connectionDetails" class="muted" style="font-size:13px">При запуске выполняется подключение только для чтения. Повторная попытка — кнопкой «Проверить и подключиться».</div><div id="connectionSteps" style="font-size:13px;margin-top:8px"></div></div><label class="check"><input id="ack" type="checkbox"> Рабочая зона свободна; другие программы и внешнее управление остановлены; аппаратный аварийный останов доступен.</label><small id="qualification"></small></div></section><section class="card"><div class="cardhead"><h2>Журнал сеанса</h2><small id="freshness"></small></div><div class="body" id="log"></div></section></div>
+<section class="card" style="margin-top:24px"><div class="cardhead"><h2>Состояние контроллера</h2><small id="statusAge">не проверено</small></div><div class="body"><button id="diagnose" disabled>Проверить готовность без движения</button><div id="controllerDetails" style="margin-top:14px">Подключитесь к роботу и запустите проверку.</div><div id="motionReasons" style="margin-top:12px;color:#e5b475"></div><p class="muted" style="font-size:12px">Читаются общие признаки и программа первого слота. Остальные слоты и внешний ПЛК автоматически не проверены. Перед передачей управления оператор проверяет их на стенде. В режиме чтения STOP отменяет локальную операцию и не останавливает чужие программы.</p><details><summary>Где узнать версию ПО контроллера</summary><p class="muted">В RT Toolbox 2 подключитесь Online, выберите ветку RC1 → Online и откройте View → Property. Нужна версия ПО контроллера, а не версия RT Toolbox. Она также отображается на начальном экране пульта обучения.</p></details></div></section>
+<footer><kbd>Esc</kbd> — запрос STOP. Сетевой STOP не является аварийным остановом. При потере сети останов не гарантирован. Согласованное движение осей, <span id="manualRange">заводские границы осей</span>; фактический диапазон указан у ползунков. HOME: одно согласованное перемещение с торможением контроллером. Автоповтора после отмены нет.</footer></main>
+<section id="handPanel" style="border-top:1px solid #2c3848"><div class="cardhead"><h2>Управление кистью · DirectControl</h2><small id="handBadge">ВЫКЛЮЧЕНО</small></div><div class="body">
+<img id="handPreview" alt="Предпросмотр камеры кисти" style="display:none;width:100%;max-width:320px;height:240px;object-fit:contain;background:#101822;border-radius:6px;margin-bottom:12px"><div id="handPreviewStatus" class="muted" style="font-size:12px;margin-bottom:12px">Камера ещё не запущена. Изображение обрабатывается на этом компьютере.</div>
+<div class="row" style="flex-wrap:wrap"><label>Камера <input class="angle" id="handCameraIndex" aria-label="Номер камеры" type="number" min="0" max="10" value="0" step="1"></label><label>Чувствительность <input class="angle" id="handSensitivity" aria-label="Чувствительность кисти" type="number" min="0.5" max="50" value="1" step="0.1"></label></div>
+<label class="check"><input id="handWhole" type="checkbox" checked> Цель целиком — как «Выполнить»</label>
+<label class="check"><input id="handMulti" type="checkbox"> Распознавать несколько осей одновременно</label>
+<div class="toolbar" style="padding-top:8px"><label>Шаг прежнего режима, ° <input class="angle" id="handStep" aria-label="Шаг прежнего режима кисти, градусы" type="number" min="0.1" max="5" value="0.5" step="0.1" disabled></label><button id="handApplyOptions">Применить настройки кисти</button></div><small id="handGainStatus">Цель J1–J6 собирается за 20 мс и выполняется одним движением. Настройки режима меняются на паузе.</small>
+<label class="check"><input id="handGrip" type="checkbox"> Управлять Z7 щипком (свести пальцы — закрыть, развести — открыть).</label>
+<div id="handGripStatus" class="muted" style="font-size:12px;margin-top:8px">Сначала разведите большой и указательный пальцы, затем сведите. Остальные пальцы держите открытыми.</div>
+<div class="toolbar"><button id="handModel" class="primary">Кисть → модель</button><button id="handRobot">Кисть → реальный робот</button><button id="handCamera">Открыть камеру</button><button id="handDisable">Выключить режим кисти</button></div>
+<div class="toolbar"><button id="handCalibrate">Калибровать / включить</button><button id="handCenter">Новый центр</button><button id="handCloseCamera">Закрыть камеру</button></div>
+<div id="handStatus" role="status" style="margin-top:14px">Включите режим, откройте камеру и нажмите Space в её окне.</div>
+<p class="muted" style="font-size:13px">J1: кисть влево/вправо · J2: вверх/вниз · J3: ближе/дальше · J4: разворот ладони · J5: наклон ладони · J6: поворот кисти в плоскости кадра. По умолчанию выбирается одна выраженная ось; флажок выше включает несколько.</p>
+<p class="muted" style="font-size:12px">Цель целиком: одна команда J1–J6 без дробления на шаги. Пока выполняется движение, сохраняется только последняя цель. Следующая отправляется после завершения текущего Mov; окно сбора 20 мс не является временем реакции робота. Скорость и плавный разгон задаёт контроллер. Кулак — STOP; V — запрос HOME. После потери кисти повторите подготовку и калибровку. HOME и STOP сохраняют захват. Столкновения моделью не проверяются.</p>
+</div></section>
+<script src="/kinematics.js"></script>
+<script>
+'use strict';
+const token=location.hash.slice(1);let state=null,targets=[0,0,0,0,0,0],dirty=false,pending=false,syncedRevision=null,speedDirty=false,gripDirty=false,gripClosed=false,limitsDirty=false,handOptionsDirty=false;
+const $=id=>document.getElementById(id),names=['Основание','Плечо','Локоть','Вращение предплечья','Наклон запястья','Вращение фланца'];
+document.querySelector('.layout > section').append($('handPanel'));
+const limits=[[-170,170],[-90,135],[-20,171],[-160,160],[-120,120],[-360,360]];
+names.forEach((name,i)=>{
+ const d=document.createElement('div');d.className='axis';d.innerHTML=`<div class="row"><div><b>J${i+1}</b> <span class="muted">${name}</span></div><input aria-label="Цель J${i+1}" id="n${i}" class="angle" type="number" step="0.1" min="${limits[i][0]}" max="${limits[i][1]}" value="${targets[i]}"></div><input aria-label="Ползунок J${i+1}" type="range" id="s${i}" min="${limits[i][0]}" max="${limits[i][1]}" step="0.1" value="${targets[i]}"><div class="row"><small id="l${i}">${limits[i][0]}° … ${limits[i][1]}°</small><span class="actual" id="a${i}">0.00°</span></div>`;
+ const bounds=document.createElement('div');bounds.className='row';bounds.style.cssText='justify-content:flex-start;flex-wrap:wrap;margin-top:10px;font-size:13px';
+ bounds.innerHTML=`<label>Мин, ° <input id="min${i}" aria-label="Минимальный угол J${i+1}" class="angle" type="number" step="any" value="${limits[i][0]}"></label><label>Макс, ° <input id="max${i}" aria-label="Максимальный угол J${i+1}" class="angle" type="number" step="any" value="${limits[i][1]}"></label><small id="factory${i}"></small>`;
+ d.append(bounds);
+ $('axes').append(d);for(const p of ['min','max'])$(p+i).oninput=()=>{limitsDirty=true;};
+ for(const prefix of ['s','n']){$(prefix+i).disabled=true;$(prefix+i).oninput=e=>{const v=Number(e.target.value);if(Number.isFinite(v)){targets[i]=v;$(prefix==='s'?'n'+i:'s'+i).value=v;dirty=true;}};}
+});
+function error(text){$('error').textContent=text;$('error').style.display=text?'block':'none';}
+async function api(action,body={}){
+ const r=await fetch('/api/'+action,{method:'POST',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify(body)});
+ const data=await r.json();if(!r.ok)throw Error(data.error||'Ошибка запроса');return data;
+}
+async function act(action,body={}){if(pending&&action!=='stop')return false;pending=true;try{error('');await api(action,body);await poll();return true;}catch(e){error(e.message);return false;}finally{pending=false;}}
+function showLimits(){if(state)state.limits.forEach((pair,i)=>{$('min'+i).value=pair[0];$('max'+i).value=pair[1];});}
+$('applyLimits').onclick=async()=>{
+ const values=[];
+ for(let i=0;i<6;i++){const fields=[$('min'+i),$('max'+i)];if(fields.some(f=>!f.value.trim()||!Number.isFinite(Number(f.value))))return error(`J${i+1}: заполните минимум и максимум числами`);values.push(fields.map(f=>Number(f.value)));}
+ if(await act('limits',{limits:values})){limitsDirty=false;showLimits();}
+};
+$('resetLimits').onclick=()=>{(state?.physical_limits||limits).forEach((pair,i)=>{$('min'+i).value=pair[0];$('max'+i).value=pair[1];});limitsDirty=true;};
+function sync(){if(!state)return;if(state.mode!=='simulation'&&!state.pose_synced){syncedRevision=null;return;}targets=state.joints.slice();syncedRevision=state.pose_revision;dirty=false;targets.forEach((v,i)=>{const bounds=state.mode==='monitor'&&state.armed?[Math.max(state.limits[i][0],v-state.max_step),Math.min(state.limits[i][1],v+state.max_step)]:state.limits[i];for(const p of ['s','n']){$(p+i).min=bounds[0];$(p+i).max=bounds[1];} $('s'+i).step='any';$('s'+i).value=v;$('n'+i).value=v.toFixed(2);});}
+$('sync').onclick=sync;$('connect').onclick=()=>act('check-connection');$('disconnect').onclick=()=>act('disconnect');$('arm').onclick=()=>act('arm',{acknowledged:$('ack').checked});$('move').onclick=()=>act('move',{target:targets,pose_revision:syncedRevision});$('stop').onclick=()=>act('stop');
+$('handModel').onclick=()=>act('hand-enable',{real:false,gripper:$('handGrip').checked});
+$('handRobot').onclick=()=>act('hand-enable',{real:true,gripper:$('handGrip').checked,acknowledged:$('ack').checked});
+$('handCamera').onclick=async()=>{if(await applyHandOptions())await act('hand-camera',{camera:Number($('handCameraIndex').value),sensitivity:Number($('handSensitivity').value)});};
+$('handDisable').onclick=()=>act('hand-disable');
+$('handCalibrate').onclick=()=>act('hand-input',{key:'SPACE'});
+$('handCenter').onclick=()=>act('hand-input',{key:'CENTER'});
+$('handCloseCamera').onclick=()=>act('hand-input',{key:'QUIT'});
+async function applyHandOptions(){const raw=$('handSensitivity').value.trim(),stepRaw=$('handStep').value.trim();const gain=Number(raw),step=Number(stepRaw);if(!raw||!Number.isFinite(gain)||gain<0.5||gain>50)return error('Чувствительность: введите число от 0,5 до 50');if(!stepRaw||!Number.isFinite(step)||step<0.1||step>5)return error('Шаг: введите число от 0,1 до 5°');const ok=await act('hand-options',{sensitivity:gain,step_deg:step,whole_target:$('handWhole').checked,multi_axis:$('handMulti').checked});if(ok)handOptionsDirty=false;return ok;}
+$('handApplyOptions').onclick=applyHandOptions;
+for(const id of ['handSensitivity','handStep'])$(id).oninput=()=>{handOptionsDirty=true;};
+$('handWhole').onchange=()=>{handOptionsDirty=true;if(!$('handWhole').checked)$('handMulti').checked=false;updateHandModeFields();};
+$('handMulti').onchange=()=>{handOptionsDirty=true;};
+function updateHandModeFields(){const locked=pending||state?.busy||state?.hand_control?.active;$('handWhole').disabled=locked;$('handMulti').disabled=locked||!$('handWhole').checked;$('handStep').disabled=locked||$('handWhole').checked;}
+$('handGrip').onchange=()=>{if(state?.hand_control?.enabled)act('hand-options',{gripper:$('handGrip').checked});};
+$('diagnose').onclick=()=>act('diagnose');
+$('grip').oninput=()=>{gripClosed=$('grip').value==='1';gripDirty=true;$('gripTarget').textContent=gripClosed?'Закрыть':'Открыть';};
+$('gripRead').onclick=()=>act('gripper-read');
+$('gripApply').onclick=async()=>{await act('gripper',{closed:gripClosed,pose_revision:syncedRevision});};
+$('servoOn').onclick=()=>act('servo',{enabled:true,acknowledged:$('ack').checked});
+$('servoOff').onclick=()=>act('servo',{enabled:false,acknowledged:$('ack').checked});
+$('speed').oninput=()=>{speedDirty=true;$('speedValue').textContent=$('speed').value+'%';};
+$('applySpeed').onclick=async()=>{await act('speed',{percent:Number($('speed').value),pose_revision:syncedRevision});if(state&&Number($('speed').value)===state.speed_percent)speedDirty=false;};
+$('home').onclick=()=>act('home',{pose_revision:syncedRevision});
+addEventListener('keydown',e=>{if(e.key==='Escape')act('stop');});
+addEventListener('blur',()=>{if(state?.armed&&!state?.hand_control?.enabled)act('stop');});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&(state?.armed||state?.hand_control?.active))act('stop');});
+async function poll(){
+ const r=await fetch('/api/state',{headers:{'X-Session-Token':token}});if(!r.ok)throw Error('Нет доступа к сеансу. Откройте адрес из окна запуска.');
+ const previous=state;state=await r.json();
+ const hand=state.hand_control||{enabled:false,active:false,status:'Режим кисти недоступен в этой версии сервера'};
+ const rangeCaption=state.range_description||(state.full_joint_ranges?'заводские границы осей':`шаг до ${state.max_step}°`);
+ if(!limitsDirty)showLimits();
+ const limitsLocked=state.busy||state.armed||hand.enabled||pending;
+ for(let i=0;i<6;i++){const f=(state.physical_limits||limits)[i];for(const p of ['min','max']){$(p+i).disabled=limitsLocked;$(p+i).min=f[0];$(p+i).max=f[1];}$('factory'+i).textContent=`Завод: ${f[0]}…${f[1]}°`;}
+ $('applyLimits').disabled=limitsLocked;$('resetLimits').disabled=limitsLocked;
+ $('limitsStatus').textContent=(state.limit_violations||[]).length?state.limit_violations.join('; ')+'. Движение заблокировано. Расширьте границы; робот автоматически не перемещается.':limitsLocked?'Для изменения границ нажмите STOP, дождитесь завершения операции и выключите режим кисти.':'Мин/Макс — абсолютные углы в градусах. Применяются вместе для J1–J6 и сохраняются между запусками. Действуют для ползунков, кисти и HOME.';
+if(!previous||syncedRevision===null||(previous.busy&&!state.busy&&previous.operation==='home')||previous.mode!==state.mode||previous.armed!==state.armed||previous.pose_revision!==state.pose_revision||(state.mode==='monitor'&&!state.armed&&!state.busy))sync();
+ $('mode').textContent=state.mode==='simulation'?'СИМУЛЯЦИЯ':state.mode==='fault'?'СБОЙ':state.armed?'УПРАВЛЕНИЕ':'ТОЛЬКО ЧТЕНИЕ';
+ $('banner').textContent=state.mode==='simulation'?'Симуляция: задайте углы и нажмите «Выполнить». Робот не подключён.':state.mode==='fault'?state.message:state.armed?`Физическое управление: согласованное движение осей, ${rangeCaption}. Измените углы нужных осей и нажмите «Выполнить».`:'Чтение положения. Ползунки показывают цель и не отправляют движения.';
+ $('endpoint').textContent=state.host+':'+state.port;$('message').textContent=(state.busy?'Выполняется… ':'')+state.message;$('log').textContent=state.events.join('\n');
+ $('qualification').textContent=state.profile_configured?`Ручное управление: ${rangeCaption}. Выбрана скорость контроллера ${state.speed_percent}%; разгон прежний. Серво переключается кнопками SVO ON / SVO OFF.`:'Физическое управление отключено в настройках.';
+ $('manualRange').textContent=rangeCaption;
+ $('freshness').textContent=state.feedback_age===null?'нет обратной связи':`обратная связь: ${state.feedback_age.toFixed(1)} с`;
+ const check=state.connection_check||{status:'idle',tcp:false,position:false,detail:'Перезапустите приложение для проверки подключения.'};
+ const fresh=state.feedback_age!==null&&state.feedback_age<1.5;
+ const synchronized=state.pose_synced&&syncedRevision===state.pose_revision;
+ $('poseStatus').textContent=state.mode==='simulation'?'Симуляция · °':synchronized&&fresh?'J1–J6 получены · °':'Нет свежего положения';
+ const checking=check.status==='checking', connected=state.mode==='monitor'&&fresh;
+ $('connectionTitle').textContent=checking?'Проверяем подключение…':connected?'Связь с контроллером подтверждена':check.status==='error'?'Нет подтверждённой связи':'Подключение не проверено';
+ $('connectionStatus').style.borderLeftColor=checking?'#d9ad61':connected?'#62d1c7':check.status==='error'?'#ef7784':'#52687d';
+ $('connectionDetails').textContent=check.detail;
+ const steps=[`TCP/IP: ${connected||check.tcp?'соединение установлено':'не подтверждено'}`,`Оси J1–J6: ${connected?'положение прочитано':check.position?'ожидаем свежие данные':'не проверены'}`,`Ползунки: ${synchronized&&fresh?'синхронизированы с положением робота':'ожидают полного положения робота'}`,`Управление: ${state.armed&&connected?'разрешено приложением':state.profile_configured?'ожидает разрешения оператора':'отключено в настройках'}`];
+ $('connectionSteps').replaceChildren(...steps.map(text=>{const line=document.createElement('div');line.textContent=text;return line;}));
+ $('connect').textContent=checking?'Проверяем…':'Проверить и подключиться';
+ $('connect').disabled=state.busy||state.armed;$('disconnect').disabled=state.mode==='simulation'||state.busy;$('arm').disabled=state.mode!=='monitor'||state.busy||state.armed||!state.profile_configured||!fresh;
+ $('move').disabled=state.busy||(state.limit_violations||[]).length>0||!(state.mode==='simulation'||(state.armed&&synchronized&&fresh&&(state.movement_blockers||[]).length===0));$('sync').disabled=state.busy||(state.mode!=='simulation'&&(!state.pose_synced||!fresh));
+ $('diagnose').disabled=state.mode!=='monitor'||state.busy||state.armed;
+ $('arm').textContent=state.operation==='arming'?'Подготовка…':'Подготовить управление';
+ const info=state.controller_status;
+ const grip=state.gripper||{hand:null,closed:null,feedback_age:null,preview_closed:false};
+ $('gripHandName').textContent=grip.hand?`Захват — Hand ${grip.hand}`:'Захват — канал не задан';
+ if(previous&&previous.mode!==state.mode)gripDirty=false;
+ if(!gripDirty){gripClosed=state.mode==='simulation'?grip.preview_closed:(grip.closed??false);$('grip').value=gripClosed?'1':'0';}
+ $('gripTarget').textContent=gripClosed?'Закрыть':'Открыть';
+ const gripFresh=grip.feedback_age!==null&&grip.feedback_age<1.5&&grip.closed!==null;
+ $('grip').disabled=state.busy||pending||(state.mode!=='simulation'&&!grip.hand);
+ $('gripRead').disabled=state.busy||pending||state.mode!=='monitor'||!fresh;
+ $('gripApply').disabled=state.busy||pending||!(state.mode==='simulation'||(state.armed&&fresh&&synchronized&&grip.hand&&gripFresh&&(state.movement_blockers||[]).length===0));
+ $('gripFeedback').textContent=state.mode==='simulation'?'Z7: только модель, команда контроллеру не отправляется.':!grip.hand?'Канал захвата не настроен.':grip.output===-1?`Hand ${grip.hand} не назначен выходу контроллера.`:grip.closed===null?`Hand ${grip.hand}: нажмите «Прочитать Z7» перед выполнением.`:`Hand ${grip.hand}, выход ${grip.output}: сигнал ${grip.closed?'Закрыть':'Открыть'}${gripFresh?'':' (устарел)'}. Датчики губок не проверены.`;
+
+ const servoBlocked=state.busy||pending||state.mode!=='monitor'||!fresh||!state.profile_configured;
+ $('servoOn').disabled=servoBlocked||info?.servo_on===true;
+ $('servoOff').disabled=servoBlocked||info?.servo_on===false;
+ if(!speedDirty){$('speed').value=state.speed_percent;$('speedValue').textContent=state.speed_percent+'%';}
+ $('speed').disabled=state.busy||pending;
+ $('applySpeed').disabled=state.busy||pending||(state.armed&&(!fresh||!synchronized||(state.movement_blockers||[]).length>0));
+ $('applySpeed').textContent=state.operation==='speed'?'Применяем…':state.armed?'Применить скорость':'Сохранить для подготовки';
+ const speedFresh=info&&state.status_age!==null&&state.status_age<1.5;
+ $('actualSpeed').textContent=speedFresh?`На контроллере: ${info.override}%`:info?`Последнее чтение: ${info.override}% (устарело)`:'На контроллере: ещё не прочитано';
+ $('speedHint').textContent=state.armed?'Применение меняет общий override без запуска движения. Во время движения скорость менять нельзя.':'Значение будет отправлено при подготовке управления. Текущий override можно прочитать кнопкой проверки готовности.';
+ $('statusAge').textContent=state.status_age===null?'не проверено':`прочитано ${state.status_age.toFixed(1)} с назад`;
+ const details=info?[`Серво: ${info.servo_on?'ВКЛ':'ВЫКЛ'}`,`Режим: ${info.automatic?'AUTOMATIC':'MANUAL'}`,`Право управления: ${info.operation_enabled?'предоставлено':'запрашивается при подготовке'}`,`Ошибки: ${info.error||'не сообщаются'}`,`Machine lock: ${info.machine_lock?'ВКЛ':'ВЫКЛ'}`,`Аварийный останов: ${info.emergency_stop?'активен':'не сообщается'}`,`Первый слот: ${info.program||'программа не выбрана'} · ${info.program_running?'выполняется':'не выполняется'}`,`Исполнение: ${info.running||info.program_running?'RUN':info.waiting?(info.stopped?'STOP + WAIT (ожидание)':'WAIT'):info.stopped?'STOP':'состояние не подтверждено'}`,`Общий override: ${info.override}%`,`Версия ПО контроллера: ${state.firmware||'ещё не указана'}`]:[state.diagnostic_error||'Состояние ещё не прочитано. Проверка не включает серво и не запускает программы.'];
+ $('controllerDetails').replaceChildren(...details.map(text=>{const line=document.createElement('div');line.textContent=text;return line;}));
+ const reasons=(state.movement_blockers||[]).slice();
+ if(!state.profile_configured)reasons.push('Физическое управление отключено в настройках');
+ const canPrepare=state.mode==='monitor'&&info&&state.profile_configured&&(state.preparation_blockers||['нет данных']).length===0;
+ $('motionReasons').textContent=state.mode==='simulation'?'Симуляция: подключения к роботу нет.':state.operation==='arming'?'Подготавливаем управление; движение не отправляется.':state.busy&&(state.operation==='move'||state.operation==='home')?'Выполняется движение. Следующая команда доступна после завершения; STOP отменяет операцию.':!state.armed&&canPrepare?'Контроллер остановлен. Подтвердите готовность зоны и нажмите «Подготовить управление». START на контроллере не требуется.':reasons.length?'Движение заблокировано: '+reasons.join('; '):`Управление подготовлено. Согласованное движение осей, ${rangeCaption}; движение — кнопкой «Выполнить».`;
+ const homeRunning=state.busy&&state.operation==='home';
+ $('home').disabled=state.busy||state.home_within_limits===false||(state.limit_violations||[]).length>0||!(state.mode==='simulation'||(state.armed&&synchronized&&fresh&&state.home_motion_enabled&&(state.movement_blockers||[]).length===0));
+ $('home').textContent=homeRunning?'HOME…':'HOME';
+ $('homePose').textContent=state.home_pose?'Фиксированная HOME · J1–J6: '+state.home_pose.map(v=>v.toFixed(2)+'°').join(' / '):'HOME не настроена';
+ $('homeStatus').textContent=state.mode==='simulation'?'HOME возвращает модель к сохранённой позе. Робот не подключён.':!state.home_motion_enabled?'Физический HOME отключён в настройках.':'HOME: одно согласованное перемещение на текущем override контроллера, с разгоном и торможением. Требуется подготовленное управление. Обход препятствий не рассчитывается.';
+ if(state.home_within_limits===false)$('homeStatus').textContent='HOME вне заданных границ и заблокирован. Сохранённая HOME не изменена; для возврата расширьте границы.';
+ $('home').title=$('homeStatus').textContent;
+ state.joints.forEach((v,i)=>{ $('a'+i).textContent=state.mode==='simulation'||state.pose_synced?v.toFixed(2)+'°':'—';
+   const lim=state.mode==='monitor'&&state.armed?[Math.max(state.limits[i][0],v-state.max_step),Math.min(state.limits[i][1],v+state.max_step)]:state.limits[i];
+   for(const p of ['s','n']){$(p+i).min=lim[0];$(p+i).max=lim[1];$(p+i).disabled=state.busy||(state.mode!=='simulation'&&(!state.armed||!fresh||!synchronized));}
+   $('l'+i).textContent=`${lim[0].toFixed(2)}° … ${lim[1].toFixed(2)}°`;
+ });
+ $('handBadge').textContent=!hand.enabled?'ВЫКЛЮЧЕНО':hand.real?'РЕАЛЬНЫЙ РОБОТ':'МОДЕЛЬ';
+ $('handStatus').textContent=hand.status+(hand.active&&hand.axis>=0?` · активная ось J${hand.axis+1}`:'')+(hand.home_requested?' · Для HOME: выключить режим кисти → подготовить управление → HOME.':'');
+ $('handModel').disabled=pending||hand.enabled||state.busy||state.mode!=='simulation';
+ $('handRobot').disabled=pending||hand.enabled||state.busy||!state.armed||!fresh||!synchronized;
+ $('handCamera').disabled=pending||!hand.enabled||hand.camera_running;
+ $('handDisable').disabled=pending||!hand.enabled;
+ $('handCalibrate').disabled=pending||!hand.enabled||!hand.camera_running;
+ $('handCalibrate').textContent=hand.active?'Пауза':'Калибровать / включить';
+ $('handCenter').disabled=pending||!hand.enabled||!hand.camera_running;
+ $('handCloseCamera').disabled=pending||!hand.camera_running;
+ $('handPreviewStatus').textContent=hand.preview_age!==null&&hand.preview_age<1.5?'Камера: свежий кадр · обработка на этом компьютере':hand.camera_running?'Ожидание кадра камеры…':'Камера выключена';
+ $('view').style.height=hand.enabled?'300px':'';
+ $('handGrip').disabled=pending;
+ if(hand.enabled)$('handGrip').checked=hand.gripper_enabled;
+ $('handApplyOptions').disabled=pending;
+ if(!handOptionsDirty){$('handSensitivity').value=hand.sensitivity??1;$('handStep').value=hand.real_step_deg??0.5;$('handWhole').checked=hand.whole_target!==false;$('handMulti').checked=!!hand.multi_axis;}
+ updateHandModeFields();
+ $('handGainStatus').textContent=`Применено: чувствительность ${hand.sensitivity??1}. `+(hand.whole_target?'Цель целиком; сбор 20 мс; без очереди; шаг не используется. '+(hand.multi_axis?'Несколько осей.':'Одна выраженная ось.'):`Прежний режим: шаг до ${hand.real_step_deg??0.5}°, темп цели до 5°/с.`)+' Режим меняется на паузе.';
+ $('handGripStatus').textContent=(hand.gripper_status||'Щипок Z7 выключен')+(hand.pinch_percent!==null&&hand.pinch_percent!==undefined?` · пальцы ${hand.pinch_percent}%`:'')+'. Остальные пальцы держите открытыми; кулак — STOP.';
+ if(hand.enabled){
+  for(const id of ['move','home','speed','applySpeed','sync','servoOn','servoOff','grip','gripRead','gripApply','connect','diagnose'])$(id).disabled=true;
+  for(let i=0;i<6;i++)for(const p of ['s','n'])$(p+i).disabled=true;
+  if(hand.active||previous?.hand_control?.active)sync();
+  if(hand.active&&hand.whole_target&&hand.goal){targets=hand.goal.slice();targets.forEach((v,i)=>{$('s'+i).value=v;$('n'+i).value=v.toFixed(2);});}
+ }
+ if(homeRunning&&state.home_pose){targets=state.home_pose.slice();targets.forEach((v,i)=>{for(const p of ['s','n']){$(p+i).min=state.limits[i][0];$(p+i).max=state.limits[i][1];}$('s'+i).step='any';$('s'+i).value=v;$('n'+i).value=v.toFixed(2);});}
+}
+async function tick(){try{if(!document.hidden)await api('heartbeat');await poll();}catch(e){error('Связь с приложением потеряна: '+e.message);syncedRevision=null;$('move').disabled=true;$('home').disabled=true;$('arm').disabled=true;$('diagnose').disabled=true;$('speed').disabled=true;$('applySpeed').disabled=true;$('servoOn').disabled=true;$('servoOff').disabled=true;$('grip').disabled=true;$('gripRead').disabled=true;$('gripApply').disabled=true;$('handApplyOptions').disabled=true;$('handStep').disabled=true;$('handGrip').disabled=true;$('applyLimits').disabled=true;$('resetLimits').disabled=true;for(let i=0;i<6;i++)for(const p of ['min','max'])$(p+i).disabled=true;for(let i=0;i<6;i++)for(const p of ['s','n'])$(p+i).disabled=true;}setTimeout(tick,300);}tick();
+const {add,mul,mv,rot,fk}=MelfaKinematics;
+let previewUrl=null;
+async function refreshHandPreview(){
+ try{
+  if(state?.hand_control?.camera_running&&state.hand_control.preview_age!==null&&state.hand_control.preview_age<1.5){
+   const r=await fetch('/api/hand-preview',{headers:{'X-Session-Token':token}});
+   if(r.ok){const next=URL.createObjectURL(await r.blob());$('handPreview').src=next;$('handPreview').style.display='block';if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl=next;}
+  }else{$('handPreview').style.display='none';if(previewUrl){URL.revokeObjectURL(previewUrl);previewUrl=null;}}
+ }catch(e){$('handPreview').style.display='none';}
+ setTimeout(refreshHandPreview,150);
+}refreshHandPreview();
+const canvas=$('view'),ctx=canvas.getContext('2d');let yaw=2.45,pitch=.45,zoom=1,drag=null;
+$('sideView').onclick=()=>{yaw=Math.PI;pitch=0;zoom=1;};$('isoView').onclick=()=>{yaw=2.45;pitch=.45;zoom=1;};
+canvas.onpointerdown=e=>{drag=[e.clientX,e.clientY];canvas.setPointerCapture(e.pointerId);};canvas.onpointermove=e=>{if(drag){yaw+=(e.clientX-drag[0])*.008;pitch=Math.max(-.2,Math.min(1.4,pitch+(e.clientY-drag[1])*.006));drag=[e.clientX,e.clientY];}};canvas.onpointerup=()=>drag=null;canvas.onwheel=e=>{e.preventDefault();zoom=Math.max(.5,Math.min(2,zoom-e.deltaY*.001));};
+function draw(){const w=canvas.clientWidth,h=canvas.clientHeight,d=devicePixelRatio||1;if(canvas.width!==Math.round(w*d)||canvas.height!==Math.round(h*d)){canvas.width=Math.round(w*d);canvas.height=Math.round(h*d);}ctx.setTransform(d,0,0,d,0,0);ctx.clearRect(0,0,w,h);
+ function proj(p){let x=p[0]*Math.cos(yaw)-p[1]*Math.sin(yaw),y=p[0]*Math.sin(yaw)+p[1]*Math.cos(yaw),z=p[2]-450;const s=Math.min(w,h)/1250*zoom;return[w/2+x*s,h*.56+(y*Math.sin(pitch)-z*Math.cos(pitch))*s];}
+ function line(a,b,color,width=1,dash=[]){const u=proj(a),v=proj(b);ctx.beginPath();ctx.setLineDash(dash);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';ctx.moveTo(...u);ctx.lineTo(...v);ctx.stroke();ctx.setLineDash([]);}
+ for(let k=-600;k<=600;k+=100){line([k,-600,0],[k,600,0],'#253447');line([-600,k,0],[600,k,0],'#253447');}
+ function robot(q,ghost){const f=fk(q);for(let i=1;i<f.pts.length;i++)line(f.pts[i-1],f.pts[i],ghost?'#ac864466':'#5dcabc',ghost?3:(i<4?19:11),ghost?[7,6]:[]);
+ if(!ghost)f.frames.forEach(([p],i)=>{const xy=proj(p);ctx.beginPath();ctx.arc(...xy,i<3?11:7,0,Math.PI*2);ctx.fillStyle='#cad8e6';ctx.fill();ctx.fillStyle='#c0d3e6';ctx.font='12px Segoe UI';ctx.fillText('J'+(i+1),xy[0]+14,xy[1]-12);});
+ if(!ghost){const closed=state.mode==='simulation'?state.gripper?.preview_closed:state.gripper?.closed;const gap=closed===true?4:closed===false?18:11;const jaw=v=>add(f.p,mv(f.R,v));line(f.p,jaw([35,0,0]),'#9faec0',8);for(const side of [-1,1]){line(jaw([35,0,0]),jaw([35,side*gap,0]),'#9faec0',5);line(jaw([35,side*gap,0]),jaw([70,side*gap,0]),'#cad8e6',5);}}
+ if(!ghost)for(let i=0;i<3;i++){let v=[0,0,0];v[i]=80;line(f.p,add(f.p,mv(f.R,v)),['#ef7784','#86d696','#7da9ff'][i],3);}}
+ if(state&&(state.mode==='simulation'||state.pose_synced)){robot(targets,true);robot(state.joints,false);}else{ctx.fillStyle='#b7c8da';ctx.font='14px Segoe UI';ctx.fillText('Ожидаем считанное положение J1–J6',20,h/2);}ctx.fillStyle='#7c95ad';ctx.font='12px Segoe UI';ctx.fillText('RV-3SDB / условная схема · мм',20,27);requestAnimationFrame(draw);}draw();
+</script></html>
